@@ -447,7 +447,7 @@ class ShowTrack(BaseCommand):
 
         # Plot
         #plt.scatter(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
-        plt.scatter(pos_pos_xs, pos_pos_zs, s=15, c=pos_speeds)
+        plt.scatter(pos_pos_xs, pos_pos_zs, s=30, c=pos_speeds)
         
         plt.plot(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
         plt.xlim(-20,100)
@@ -456,7 +456,7 @@ class ShowTrack(BaseCommand):
         plt.title('Parking Lot Nerds - Recorded Tracks')
         plt.xlabel('x')
         plt.ylabel('z')
-        plt.legend(pos_speeds)
+        plt.legend()
         
         plt.show()
 
