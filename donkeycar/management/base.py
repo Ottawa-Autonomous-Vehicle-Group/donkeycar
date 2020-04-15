@@ -385,6 +385,7 @@ class ShowTrack(BaseCommand):
         pos_pos_xs = []
         pos_pos_ys = []
         pos_pos_zs = []
+        pos_ctes   = []
 
         records = records[:limit]
         num_records = len(records)
@@ -403,21 +404,23 @@ class ShowTrack(BaseCommand):
             pos_pos_x = float(record["pos/pos_x"])
             pos_pos_y = float(record["pos/pos_y"])
             pos_pos_z = float(record["pos/pos_z"])
+            pos_cte   = float(record["pos/cte"])
 
             pos_pos_xs.append(pos_pos_x)
             pos_pos_ys.append(pos_pos_y)
             pos_pos_zs.append(pos_pos_z)
             pos_speeds.append(pos_speed)
+            pos_ctes.append(pos_cte)
             
         angles_df = pd.DataFrame({'user_angle': user_angles, 'pilot_angle': user_angles})
         throttles_df = pd.DataFrame({'user_throttle': user_throttles, 'pilot_throttle': user_throttles})
 
         tracks_df = pd.DataFrame({'pos_x': pos_pos_xs, 'pos_z': pos_pos_zs})
-        speeds_df = pd.DataFrame({'pos_speed': pos_speed, 'user_throttle': user_throttles})
+        speeds_df = pd.DataFrame({'pos_speeds': pos_speeds, 'pos_ctes': pos_ctes})
 
         fig = plt.figure()
 
-        title = "Track Plot"
+        title = "Parking Lot Nerds - Track Plot"
         fig.suptitle(title)
 
         ax1 = fig.add_subplot(211)
@@ -444,13 +447,17 @@ class ShowTrack(BaseCommand):
 
         # Plot
         #plt.scatter(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
+        plt.scatter(pos_pos_xs, pos_pos_zs, s=15, c=pos_speeds)
+        
         plt.plot(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
         plt.xlim(-20,100)
         plt.ylim(-20,100)
         
-        plt.title('Recorded Tracks')
+        plt.title('Parking Lot Nerds - Recorded Tracks')
         plt.xlabel('x')
         plt.ylabel('z')
+        plt.legend(pos_speeds)
+        
         plt.show()
 
 
