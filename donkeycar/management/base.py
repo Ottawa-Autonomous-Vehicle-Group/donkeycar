@@ -323,6 +323,152 @@ class ShowHistogram(BaseCommand):
         args.tub = ','.join(args.tub)
         self.show_histogram(args.tub, args.record)
 
+class ShowTrack0(BaseCommand):
+
+    def parse_args(self, args):
+        parser = argparse.ArgumentParser(prog='tubhist', usage='%(prog)s [options]')
+        parser.add_argument('--tub', nargs='+', help='paths to tubs')
+        parser.add_argument('--record', default=None, help='name of record to create histogram')
+        parsed_args = parser.parse_args(args)
+        return parsed_args
+
+    def show_histogram(self, tub_paths, record_name):
+        '''
+        Produce a histogram of record type frequency in the given tub
+        '''
+        from matplotlib import pyplot as plt
+        from donkeycar.parts.datastore import TubGroup
+
+        print("****************************************")
+        print("tub_paths:   ", tub_paths)
+        print("record_name: ", record_name)
+        print("****************************************")
+        
+        tg = TubGroup(tub_paths=tub_paths)
+        if record_name is not None:
+            tg.df[record_name].hist(bins=50)
+        else:
+            tg.df.hist(bins=50)
+
+        print("tg:         ",tg)
+
+        try:
+            filename = os.path.basename(tub_paths) + '_hist_%s.png' % record_name.replace('/', '_')
+            plt.savefig(filename)
+            print('saving image to:', filename)
+        except:
+            pass
+        plt.show()
+
+    def run(self, args):
+        args = self.parse_args(args)
+        args.tub = ','.join(args.tub)
+        self.show_histogram(args.tub, args.record)
+
+class ShowTrack(BaseCommand):
+
+    def plot_predictions(self, cfg, tub_paths, limit):
+        '''
+        Plot model predictions for angle and throttle against data from tubs.
+
+        '''
+        import matplotlib.pyplot as plt
+        import pandas as pd
+
+        records = gather_records(cfg, tub_paths)
+        user_angles = []
+        user_throttles = []
+        pilot_angles = []
+        pilot_throttles = []       
+
+        pos_speeds = []
+        pos_pos_xs = []
+        pos_pos_ys = []
+        pos_pos_zs = []
+
+        records = records[:limit]
+        num_records = len(records)
+        print('processing %d records:' % num_records)
+
+        for record_path in records:
+            with open(record_path, 'r') as fp:
+                record = json.load(fp)
+            user_angle = float(record["user/angle"])
+            user_throttle = float(record["user/throttle"])
+            
+            user_angles.append(user_angle)
+            user_throttles.append(user_throttle)
+            
+            pos_speed = float(record["pos/speed"])
+            pos_pos_x = float(record["pos/pos_x"])
+            pos_pos_y = float(record["pos/pos_y"])
+            pos_pos_z = float(record["pos/pos_z"])
+
+            pos_pos_xs.append(pos_pos_x)
+            pos_pos_ys.append(pos_pos_y)
+            pos_pos_zs.append(pos_pos_z)
+            pos_speeds.append(pos_speed)
+            
+        angles_df = pd.DataFrame({'user_angle': user_angles, 'pilot_angle': user_angles})
+        throttles_df = pd.DataFrame({'user_throttle': user_throttles, 'pilot_throttle': user_throttles})
+
+        tracks_df = pd.DataFrame({'pos_x': pos_pos_xs, 'pos_z': pos_pos_zs})
+        speeds_df = pd.DataFrame({'pos_speed': pos_speed, 'user_throttle': user_throttles})
+
+        fig = plt.figure()
+
+        title = "Track Plot"
+        fig.suptitle(title)
+
+        ax1 = fig.add_subplot(211)
+        ax2 = fig.add_subplot(212)
+
+        #angles_df.plot(ax=ax1)
+        #throttles_df.plot(ax=ax2)
+        tracks_df.plot(ax=ax1)
+        #tracks_df.plot(ax=ax2)
+        speeds_df.plot(ax=ax2)
+
+        ax1.legend(loc=4)
+        ax2.legend(loc=4)
+        
+        plt.savefig('rainer'+ '_pred.png')
+        plt.show()
+
+        # Create data
+        N = 500
+        x = np.random.rand(N)
+        y = np.random.rand(N)
+        colors = (0,0,0)
+        area = np.pi*3
+
+        # Plot
+        #plt.scatter(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
+        plt.plot(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
+        plt.xlim(-20,100)
+        plt.ylim(-20,100)
+        
+        plt.title('Recorded Tracks')
+        plt.xlabel('x')
+        plt.ylabel('z')
+        plt.show()
+
+
+
+    def parse_args(self, args):
+        parser = argparse.ArgumentParser(prog='tubplot', usage='%(prog)s [options]')
+        parser.add_argument('--tub', nargs='+', help='paths to tubs')
+        parser.add_argument('--config', default='./config.py', help='location of config file to use. default: ./config.py')
+        parser.add_argument('--limit', default=1000, help='how many records to process')
+        parsed_args = parser.parse_args(args)
+        return parsed_args
+
+    def run(self, args):
+        args = self.parse_args(args)
+        args.tub = ','.join(args.tub)
+        cfg = load_config(args.config)
+        self.plot_predictions(cfg, args.tub, args.limit)
+   
 
 class ConSync(BaseCommand):
     '''
@@ -550,6 +696,7 @@ def execute_from_command_line():
             'calibrate': CalibrateCar,
             'tubclean': TubManager,
             'tubhist': ShowHistogram,
+            'tubtrack': ShowTrack,
             'tubplot': ShowPredictionPlots,
             'tubcheck': TubCheck,
             'makemovie': MakeMovieShell,            
