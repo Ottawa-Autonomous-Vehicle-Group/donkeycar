@@ -147,7 +147,7 @@ MODEL_CATEGORICAL_MAX_THROTTLE_RANGE = 0.5
 SEQUENCE_LENGTH = 3             #some models use a number of images over time. This controls how many.
 
 #IMU
-HAVE_IMU = False                #when true, this add a Mpu6050 part and records the data. Can be used with a 
+HAVE_IMU = False                #when true, this add a Mpu6050 part and records the data. Can be used with a
 IMU_SENSOR = 'mpu6050'          # (mpu6050|mpu9250)
 IMU_DLP_CONFIG = 0              # Digital Lowpass Filter setting (0:250Hz, 1:184Hz, 2:92Hz, 3:41Hz, 4:20Hz, 5:10Hz, 6:5Hz)
 
@@ -166,7 +166,7 @@ LED_INVERT = False              #COMMON ANODE? Some RGB LED use common anode. li
 
 #LED board pin number for pwm outputs
 #These are physical pinouts. See: https://www.raspberrypi-spy.co.uk/2012/06/simple-guide-to-the-rpi-gpio-header-and-pins/
-LED_PIN_R = 12      
+LED_PIN_R = 12
 LED_PIN_G = 10
 LED_PIN_B = 16
 
@@ -224,6 +224,10 @@ GYM_CONF = { "body_style" : "donkey", "body_rgb" : (128, 128, 128), "car_name" :
 SIM_HOST = "127.0.0.1"              # when racing on virtual-race-league use host "trainmydonkey.com"
 SIM_ARTIFICIAL_LATENCY = 0          # this is the millisecond latency in controls. Can use useful in emulating the delay when useing a remote server. values of 100 to 400 probably reasonable.
 
+# Save location info from Simulator
+SIM_RECORD_LOCATION = False
+
+
 #publish camera over network
 #This is used to create a tcp service to pushlish the camera feed
 PUB_CAMERA_IMAGES = False
@@ -254,5 +258,3 @@ REALSENSE_D435_RGB = True       # True to capture RGB image
 REALSENSE_D435_DEPTH = True     # True to capture depth as image array
 REALSENSE_D435_IMU = False      # True to capture IMU data (D435i only)
 REALSENSE_D435_ID = None        # serial number of camera or None if you only have one camera (it will autodetect)
-
-
