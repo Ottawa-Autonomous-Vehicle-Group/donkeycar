@@ -367,9 +367,13 @@ class ShowTrack0(BaseCommand):
 
 class ShowTrack(BaseCommand):
 
-    def plot_predictions(self, cfg, tub_paths, limit):
+    def plot_tracks(self, cfg, tub_paths, limit):
         '''
-        Plot model predictions for angle and throttle against data from tubs.
+        Plot track data from tubs.
+
+        usage
+
+        donkey tubtrack --tub data/tub_33_20-04-16 --config ./myconfig.py
 
         '''
         import matplotlib.pyplot as plt
@@ -474,7 +478,7 @@ class ShowTrack(BaseCommand):
         args = self.parse_args(args)
         args.tub = ','.join(args.tub)
         cfg = load_config(args.config)
-        self.plot_predictions(cfg, args.tub, args.limit)
+        self.plot_tracks(cfg, args.tub, args.limit)
    
 
 class ConSync(BaseCommand):
