@@ -8,7 +8,7 @@ import json
 import time
 
 import donkeycar as dk
-from donkeycar.parts.datastore import Tub
+from donkeycar.parts.datastore import Tub, TubHandler # rbx TubHandler added
 from donkeycar.utils import *
 from donkeycar.management.tub import TubManager
 from donkeycar.management.joystick_creator import CreateJoystick
@@ -360,6 +360,14 @@ class ShowTrack0(BaseCommand):
             pass
         plt.show()
 
+    def parse_args(self, args):
+        parser = argparse.ArgumentParser(prog='tubhist', usage='%(prog)s [options]')
+        parser.add_argument('--tub', nargs='+', help='paths to tubs')
+        parser.add_argument('--record', default=None, help='name of record to create histogram')
+        parsed_args = parser.parse_args(args)
+        return parsed_args
+
+
     def run(self, args):
         args = self.parse_args(args)
         args.tub = ','.join(args.tub)
@@ -374,6 +382,7 @@ class ShowTrack(BaseCommand):
         usage
 
         donkey tubtrack --tub data/tub_33_20-04-16 --config ./myconfig.py
+        
 
         '''
         import matplotlib.pyplot as plt
@@ -464,13 +473,108 @@ class ShowTrack(BaseCommand):
         
         plt.show()
 
+    def run(self, args):
+        args = self.parse_args(args)
+        args.tub = ','.join(args.tub)
+        cfg = load_config(args.config)
+        self.plot_tracks(cfg, args.tub, args.limit)
 
+    def parse_args(self, args):
+        parser = argparse.ArgumentParser(prog='tubhist', usage='%(prog)s [options]')
+        parser.add_argument('--tub', nargs='+', help='paths to tubs')
+        parser.add_argument('--config', default='./config.py', help='location of config file to use. default: ./config.py')
+        parser.add_argument('--limit', default=10000, help='how many records to process')
+        parsed_args = parser.parse_args(args)
+        return parsed_args
+   
+class ConvertTrack(BaseCommand):
+
+    def convert_tracks(self, cfg, tub_paths, limit):
+        '''
+        Convert AI driven track data from tubs to training data.
+
+        usage
+
+        donkey tubtrack --tub data/tub_33_20-04-16 --config ./myconfig.py
+        
+
+        '''
+        import matplotlib.pyplot as plt
+        import pandas as pd
+
+        records = gather_records(cfg, tub_paths)
+        user_angles = []
+        user_throttles = []
+        pilot_angles = []
+        pilot_throttles = []       
+
+        pos_speeds = []
+        pos_pos_xs = []
+        pos_pos_ys = []
+        pos_pos_zs = []
+        pos_ctes   = []
+
+        records = records[:limit]
+        num_records = len(records)
+        print('processing %d records:' % num_records)
+        print('tub_paths: ', tub_paths)
+
+        for record_path in records:
+            with open(record_path, 'r') as fp:
+                record = json.load(fp)
+            user_angle = float(record["user/angle"])
+            user_throttle = float(record["user/throttle"])
+            
+            user_angles.append(user_angle)
+            user_throttles.append(user_throttle)
+            
+            pos_speed = float(record["pos/speed"])
+            pos_pos_x = float(record["pos/pos_x"])
+            pos_pos_y = float(record["pos/pos_y"])
+            pos_pos_z = float(record["pos/pos_z"])
+            pos_cte   = float(record["pos/cte"])
+
+            pos_pos_xs.append(pos_pos_x)
+            pos_pos_ys.append(pos_pos_y)
+            pos_pos_zs.append(pos_pos_z)
+            pos_speeds.append(pos_speed)
+            pos_ctes.append(pos_cte)
+
+
+        # Create data
+        N = 500
+        x = np.random.rand(N)
+        y = np.random.rand(N)
+        colors = (0,0,0)
+        area = np.pi*3
+
+        # Plot
+        #plt.scatter(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
+        plt.scatter(pos_pos_xs, pos_pos_zs, s=30, c=pos_speeds)
+        
+        plt.plot(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
+        plt.xlim(-20,100)
+        plt.ylim(-20,100)
+        
+        plt.title('Parking Lot Nerds - Recorded Tracks')
+        plt.xlabel('x')
+        plt.ylabel('z')
+        plt.legend()
+        
+        plt.show()
+        mypath = "./mydata"
+        th = TubHandler(mypath)
+
+
+
+
+# t = create_sample_tub(tub_path, records=initial_records)
 
     def parse_args(self, args):
         parser = argparse.ArgumentParser(prog='tubplot', usage='%(prog)s [options]')
         parser.add_argument('--tub', nargs='+', help='paths to tubs')
         parser.add_argument('--config', default='./config.py', help='location of config file to use. default: ./config.py')
-        parser.add_argument('--limit', default=1000, help='how many records to process')
+        parser.add_argument('--limit', default=10000, help='how many records to process')
         parsed_args = parser.parse_args(args)
         return parsed_args
 
@@ -478,8 +582,7 @@ class ShowTrack(BaseCommand):
         args = self.parse_args(args)
         args.tub = ','.join(args.tub)
         cfg = load_config(args.config)
-        self.plot_tracks(cfg, args.tub, args.limit)
-   
+        self.convert_tracks(cfg, args.tub, args.limit)
 
 class ConSync(BaseCommand):
     '''
@@ -708,6 +811,7 @@ def execute_from_command_line():
             'tubclean': TubManager,
             'tubhist': ShowHistogram,
             'tubtrack': ShowTrack,
+            'convtrack': ConvertTrack,
             'tubplot': ShowPredictionPlots,
             'tubcheck': TubCheck,
             'makemovie': MakeMovieShell,            
