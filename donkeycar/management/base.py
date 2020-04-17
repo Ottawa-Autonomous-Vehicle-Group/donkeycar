@@ -495,7 +495,7 @@ class ConvertTrack(BaseCommand):
 
         usage
 
-        donkey tubtrack --tub data/tub_33_20-04-16 --config ./myconfig.py
+        donkey convtrack --tub data/tub_48_20-04-16 --config ./myconfig.py
         
 
         '''
@@ -503,70 +503,46 @@ class ConvertTrack(BaseCommand):
         import pandas as pd
 
         records = gather_records(cfg, tub_paths)
-        user_angles = []
-        user_throttles = []
-        pilot_angles = []
-        pilot_throttles = []       
-
-        pos_speeds = []
-        pos_pos_xs = []
-        pos_pos_ys = []
-        pos_pos_zs = []
-        pos_ctes   = []
 
         records = records[:limit]
         num_records = len(records)
         print('processing %d records:' % num_records)
         print('tub_paths: ', tub_paths)
 
+        ix = 0
         for record_path in records:
+            # increment json file number counter
+            ix +=1
+
+            #print(record_path) # name of json file
+            # read AI record
             with open(record_path, 'r') as fp:
                 record = json.load(fp)
-            user_angle = float(record["user/angle"])
-            user_throttle = float(record["user/throttle"])
+            #user_angle = float(record["user/angle"])
+            #user_throttle = float(record["user/throttle"])
+            pilot_angle = float(record["pilot/angle"])
+            pilot_throttle = float(record["pilot/throttle"])
+                        
+            # store pilot/angle into user/angle 
+            record["user/angle"]      = pilot_angle
+            record["user/throttle"]   = pilot_throttle
+            record["pilot/angle"]     = 0.0
+            record["pilot/throttle"]  = 0.0
+
+            # write modified record
+            myoutput_path = "./data/AI_tub_48_20-04-16/record_"+str(ix)+".json"          
+            try:
+                with open(myoutput_path, 'w') as fp:
+                    json.dump(record, fp)
+                    #print('wrote record:', record)
+            except TypeError:
+                print('troubles with record:', json_data)
+            except FileNotFoundError:
+                raise
+            except:
+                print("Unexpected error:", sys.exc_info()[0])
+                raise
             
-            user_angles.append(user_angle)
-            user_throttles.append(user_throttle)
-            
-            pos_speed = float(record["pos/speed"])
-            pos_pos_x = float(record["pos/pos_x"])
-            pos_pos_y = float(record["pos/pos_y"])
-            pos_pos_z = float(record["pos/pos_z"])
-            pos_cte   = float(record["pos/cte"])
-
-            pos_pos_xs.append(pos_pos_x)
-            pos_pos_ys.append(pos_pos_y)
-            pos_pos_zs.append(pos_pos_z)
-            pos_speeds.append(pos_speed)
-            pos_ctes.append(pos_cte)
-
-
-        # Create data
-        N = 500
-        x = np.random.rand(N)
-        y = np.random.rand(N)
-        colors = (0,0,0)
-        area = np.pi*3
-
-        # Plot
-        #plt.scatter(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
-        plt.scatter(pos_pos_xs, pos_pos_zs, s=30, c=pos_speeds)
-        
-        plt.plot(pos_pos_xs, pos_pos_zs, c=colors, alpha=0.5)
-        plt.xlim(-20,100)
-        plt.ylim(-20,100)
-        
-        plt.title('Parking Lot Nerds - Recorded Tracks')
-        plt.xlabel('x')
-        plt.ylabel('z')
-        plt.legend()
-        
-        plt.show()
-        mypath = "./mydata"
-        th = TubHandler(mypath)
-
-
-
 
 # t = create_sample_tub(tub_path, records=initial_records)
 
