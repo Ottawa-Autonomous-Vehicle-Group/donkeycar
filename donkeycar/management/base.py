@@ -14,6 +14,9 @@ from donkeycar.management.tub import TubManager
 from donkeycar.management.joystick_creator import CreateJoystick
 import numpy as np
 
+from donkeycar.utils import img_to_binary, binary_to_img, arr_to_img, img_to_arr
+import cv2
+
 PACKAGE_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 TEMPLATES_PATH = os.path.join(PACKAGE_PATH, 'templates')
 
@@ -543,6 +546,79 @@ class ConvertTrack(BaseCommand):
                 print("Unexpected error:", sys.exc_info()[0])
                 raise
             
+class FlipHub(BaseCommand):
+
+    def flip_hub(self, cfg, tub_paths, tub_out):
+        '''
+        Convert AI driven track data from tubs to training data.
+
+        usage
+
+        (sds) rainer@neuron:~/mysim_ottawa$ 
+        donkey fliphub --tub data/tub_10_20-04-15 --config ./myconfig.py --out data/flipped/tub_10_20-04-15
+
+
+        '''
+        import matplotlib.pyplot as plt
+        import pandas as pd
+
+        records = gather_records(cfg, tub_paths)
+        num_records = len(records)
+
+        print('processing %d records:' % num_records)
+        print('input  --> tub_paths: ', tub_paths)
+        print('output --> tub_out  : ', tub_out)
+        #print('records: ', records)
+        
+        try:
+            os.makedirs(tub_out)
+        except FileExistsError:
+            # directory already exists
+            pass
+
+        ix = 0
+        for record_path in records:
+            # increment json file number counter
+            ix +=1
+
+            #print("record_path: ",record_path) # name of json file
+            
+            # read unflipped json record
+            with open(record_path, 'r') as fp:
+                record = json.load(fp)
+            user_angle = float(record["user/angle"])
+
+            # read unflipped image
+            image_filename = record["cam/image_array"]
+            img_path = tub_paths+"/"+image_filename
+            image = cv2.imread(img_path)
+            img_arr = img_to_arr(image)
+            
+            # flip image
+            image_fl = cv2.flip(img_arr, 1)
+
+            # store pilot/angle into user/angle 
+            record["user/angle"] = -user_angle
+            
+            # write flipped record & image
+            myoutput_path = tub_out+"/record_"+str(ix)+".json"          
+            myimageout    = tub_out+"/"+str(ix)+"_cam-image_array_.jpg"
+            
+            cv2.imwrite(myimageout, image_fl) 
+
+            try:
+                with open(myoutput_path, 'w') as fp:
+                    json.dump(record, fp)
+                    #print('wrote record:', record)
+            except TypeError:
+                print('troubles with record:', json_data)
+            except FileNotFoundError:
+                raise
+            except:
+                print("Unexpected error:", sys.exc_info()[0])
+                raise
+            
+
 
 # t = create_sample_tub(tub_path, records=initial_records)
 
@@ -550,15 +626,16 @@ class ConvertTrack(BaseCommand):
         parser = argparse.ArgumentParser(prog='tubplot', usage='%(prog)s [options]')
         parser.add_argument('--tub', nargs='+', help='paths to tubs')
         parser.add_argument('--config', default='./config.py', help='location of config file to use. default: ./config.py')
-        parser.add_argument('--limit', default=10000, help='how many records to process')
+        parser.add_argument('--out', default='data/flipped/', help='output tub path default: data/flipped/')
         parsed_args = parser.parse_args(args)
         return parsed_args
 
     def run(self, args):
         args = self.parse_args(args)
         args.tub = ','.join(args.tub)
+        #args.out = args.tub+'/flipped'
         cfg = load_config(args.config)
-        self.convert_tracks(cfg, args.tub, args.limit)
+        self.flip_hub(cfg, args.tub, args.out)
 
 class ConSync(BaseCommand):
     '''
@@ -788,6 +865,7 @@ def execute_from_command_line():
             'tubhist': ShowHistogram,
             'tubtrack': ShowTrack,
             'convtrack': ConvertTrack,
+            'fliphub': FlipHub,
             'tubplot': ShowPredictionPlots,
             'tubcheck': TubCheck,
             'makemovie': MakeMovieShell,            
