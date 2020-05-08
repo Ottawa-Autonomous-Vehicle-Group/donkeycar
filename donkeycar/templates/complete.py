@@ -127,6 +127,9 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
         elif cfg.CAMERA_TYPE == "MOCK":
             from donkeycar.parts.camera import MockCamera
             cam = MockCamera(image_w=cfg.IMAGE_W, image_h=cfg.IMAGE_H, image_d=cfg.IMAGE_DEPTH)
+        elif cfg.CAMERA_TYPE == "IMAGE_LIST":
+            from donkeycar.parts.camera import ImageListCamera
+            cam = ImageListCamera(path_mask=cfg.PATH_MASK)
         else:
             raise(Exception("Unkown camera type: %s" % cfg.CAMERA_TYPE))
 
@@ -166,15 +169,19 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
                 netwkJs = JoyStickSub(cfg.NETWORK_JS_SERVER_IP)
                 V.add(netwkJs, threaded=True)
                 ctr.js = netwkJs
+        
+        V.add(ctr, 
+          inputs=['cam/image_array'],
+          outputs=['user/angle', 'user/throttle', 'user/mode', 'recording'],
+          threaded=True)
 
     else:
         #This web controller will create a web server that is capable
         #of managing steering, throttle, and modes, and more.
         ctr = LocalWebController(port=cfg.WEB_CONTROL_PORT, mode=cfg.WEB_INIT_MODE)
-
-
-    V.add(ctr,
-          inputs=['cam/image_array'],
+        
+        V.add(ctr,
+          inputs=['cam/image_array', 'tub/num_records'],
           outputs=['user/angle', 'user/throttle', 'user/mode', 'recording'],
           threaded=True)
 
@@ -478,10 +485,10 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
         V.add(AiRecordingCondition(), inputs=['user/mode', 'recording'], outputs=['recording'])
 
     #Drive train setup
-    if cfg.DONKEY_GYM:
+    if cfg.DONKEY_GYM or cfg.DRIVE_TRAIN_TYPE == "MOCK":
         pass
-
     elif cfg.DRIVE_TRAIN_TYPE == "SERVO_ESC":
+<<<<<<< HEAD
         if cfg.HAVE_ROBOHAT and model_path:
             from donkeycar.parts.robohat import RoboHATDriver
 
@@ -505,9 +512,21 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
                                             max_pulse=cfg.THROTTLE_FORWARD_PWM,
                                             zero_pulse=cfg.THROTTLE_STOPPED_PWM,
                                             min_pulse=cfg.THROTTLE_REVERSE_PWM)
+        from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
 
-            V.add(steering, inputs=['angle'], threaded=True)
-            V.add(throttle, inputs=['throttle'], threaded=True)
+        steering_controller = PCA9685(cfg.STEERING_CHANNEL, cfg.PCA9685_I2C_ADDR, busnum=cfg.PCA9685_I2C_BUSNUM)
+        steering = PWMSteering(controller=steering_controller,
+                                        left_pulse=cfg.STEERING_LEFT_PWM,
+                                        right_pulse=cfg.STEERING_RIGHT_PWM)
+
+        throttle_controller = PCA9685(cfg.THROTTLE_CHANNEL, cfg.PCA9685_I2C_ADDR, busnum=cfg.PCA9685_I2C_BUSNUM)
+        throttle = PWMThrottle(controller=throttle_controller,
+                                        max_pulse=cfg.THROTTLE_FORWARD_PWM,
+                                        zero_pulse=cfg.THROTTLE_STOPPED_PWM,
+                                        min_pulse=cfg.THROTTLE_REVERSE_PWM)
+
+        V.add(steering, inputs=['angle'], threaded=True)
+        V.add(throttle, inputs=['throttle'], threaded=True)
 
 
     elif cfg.DRIVE_TRAIN_TYPE == "DC_STEER_THROTTLE":
@@ -550,6 +569,25 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
 
         V.add(steering, inputs=['angle'], threaded=True)
         V.add(motor, inputs=["throttle"])
+        
+    elif cfg.DRIVE_TRAIN_TYPE == "MM1":
+        from donkeycar.parts.robohat import RoboHATDriver
+        V.add(RoboHATDriver(cfg), inputs=['angle', 'throttle'])
+    
+    elif cfg.DRIVE_TRAIN_TYPE == "PIGPIO_PWM":
+        from donkeycar.parts.actuator import PWMSteering, PWMThrottle, PiGPIO_PWM
+        steering_controller = PiGPIO_PWM(cfg.STEERING_PWM_PIN, freq=cfg.STEERING_PWM_FREQ, inverted=cfg.STEERING_PWM_INVERTED)
+        steering = PWMSteering(controller=steering_controller,
+                                        left_pulse=cfg.STEERING_LEFT_PWM, 
+                                        right_pulse=cfg.STEERING_RIGHT_PWM)
+        
+        throttle_controller = PiGPIO_PWM(cfg.THROTTLE_PWM_PIN, freq=cfg.THROTTLE_PWM_FREQ, inverted=cfg.THROTTLE_PWM_INVERTED)
+        throttle = PWMThrottle(controller=throttle_controller,
+                                            max_pulse=cfg.THROTTLE_FORWARD_PWM,
+                                            zero_pulse=cfg.THROTTLE_STOPPED_PWM, 
+                                            min_pulse=cfg.THROTTLE_REVERSE_PWM)
+        V.add(steering, inputs=['angle'], threaded=True)
+        V.add(throttle, inputs=['throttle'], threaded=True)
 
     # OLED setup
     if cfg.USE_SSD1306_128_32:
@@ -606,7 +644,10 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
         V.add(pub, inputs=['jpg/bin'])
 
     if type(ctr) is LocalWebController:
-        print("You can now go to <your pis hostname.local>:8887 to drive your car.")
+        if cfg.DONKEY_GYM:
+            print("You can now go to http://localhost:%d to drive your car." % cfg.WEB_CONTROL_PORT)
+        else:
+            print("You can now go to <your hostname.local>:%d to drive your car." % cfg.WEB_CONTROL_PORT)
     elif isinstance(ctr, JoystickController):
         print("You can now move your joystick to drive your car.")
         #tell the controller about the tub
@@ -649,10 +690,14 @@ if __name__ == '__main__':
         model_type = args['--type']
         continuous = args['--continuous']
         aug = args['--aug']
-
         dirs = preprocessFileList( args['--file'] )
+
         if tub is not None:
             tub_paths = [os.path.expanduser(n) for n in tub.split(',')]
             dirs.extend( tub_paths )
+
+        if model_type is None:
+            model_type = cfg.DEFAULT_MODEL_TYPE
+            print("using default model type of", model_type)
 
         multi_train(cfg, dirs, model, transfer, model_type, continuous, aug)
